@@ -6,7 +6,7 @@ import { useEmployees } from "./hooks/useEmployees"
 import { usePaginatedTransactions } from "./hooks/usePaginatedTransactions"
 import { useTransactionsByEmployee } from "./hooks/useTransactionsByEmployee"
 import { EMPTY_EMPLOYEE } from "./utils/constants"
-import { Employee, Transaction, SetTransactionApprovalParams } from "./utils/types"
+import { Employee, SetTransactionApprovalParams } from "./utils/types"
 
 import { useCustomFetch } from "./hooks/useCustomFetch"
 
@@ -46,7 +46,6 @@ export function App() {
     async ({ transactionId, newValue }: { transactionId: string; newValue: boolean }) => {
       setApprovalStates((prev) => ({ ...prev, [transactionId]: newValue }))
 
-      // Persist to backend
       await fetchWithoutCache<void, SetTransactionApprovalParams>("setTransactionApproval", {
         transactionId,
         value: newValue,
