@@ -6,22 +6,30 @@ import { useEmployees } from "./hooks/useEmployees"
 import { usePaginatedTransactions } from "./hooks/usePaginatedTransactions"
 import { useTransactionsByEmployee } from "./hooks/useTransactionsByEmployee"
 import { EMPTY_EMPLOYEE } from "./utils/constants"
-import { Employee } from "./utils/types"
+import { Employee, Transaction, SetTransactionApprovalParams } from "./utils/types"
+
+import { useCustomFetch } from "./hooks/useCustomFetch"
 
 export function App() {
   const { data: employees, ...employeeUtils } = useEmployees()
   const { data: paginatedTransactions, ...paginatedTransactionsUtils } = usePaginatedTransactions()
   const { data: transactionsByEmployee, ...transactionsByEmployeeUtils } = useTransactionsByEmployee()
 
-  const transactions = useMemo(
-    () => paginatedTransactions?.data ?? transactionsByEmployee ?? null,
-    [paginatedTransactions, transactionsByEmployee]
-  )
+  const { fetchWithoutCache } = useCustomFetch()
+  const [approvalStates, setApprovalStates] = useState<Record<string, boolean>>({})
+
+  const transactions = useMemo(() => {
+    const rawTransactions = paginatedTransactions?.data ?? transactionsByEmployee ?? null
+    return (
+      rawTransactions?.map((t) => ({
+        ...t,
+        approved: approvalStates[t.id] ?? t.approved,
+      })) ?? null
+    )
+  }, [paginatedTransactions, transactionsByEmployee, approvalStates])
 
   const loadAllTransactions = useCallback(async () => {
     transactionsByEmployeeUtils.invalidateData()
-    paginatedTransactionsUtils.invalidateData()
-
     await employeeUtils.fetchAll()
     await paginatedTransactionsUtils.fetchAll()
   }, [employeeUtils, paginatedTransactionsUtils, transactionsByEmployeeUtils])
@@ -32,6 +40,19 @@ export function App() {
       await transactionsByEmployeeUtils.fetchById(employeeId)
     },
     [paginatedTransactionsUtils, transactionsByEmployeeUtils]
+  )
+
+  const setTransactionApproval = useCallback(
+    async ({ transactionId, newValue }: { transactionId: string; newValue: boolean }) => {
+      setApprovalStates((prev) => ({ ...prev, [transactionId]: newValue }))
+
+      // Persist to backend
+      await fetchWithoutCache<void, SetTransactionApprovalParams>("setTransactionApproval", {
+        transactionId,
+        value: newValue,
+      })
+    },
+    [fetchWithoutCache]
   )
 
   useEffect(() => {
@@ -74,7 +95,7 @@ export function App() {
         <div className="RampBreak--l" />
 
         <div className="RampGrid">
-          <Transactions transactions={transactions} />
+          <Transactions transactions={transactions} setTransactionApproval={setTransactionApproval} />
 
           {transactions !== null &&
             paginatedTransactions !== null &&
